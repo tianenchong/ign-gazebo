@@ -154,6 +154,13 @@ inline namespace IGNITION_GAZEBO_VERSION_NAMESPACE {
     private: bool OnMoveToPose(const msgs::GUICamera &_msg,
                  msgs::Boolean &_res);
 
+    /// \brief Callback for saving a screenshot (from the user camera) request
+    /// \param[in] _msg Request message of the saved file path
+    /// \param[in] _res Response data
+    /// \return True if the request is received
+    private: bool OnScreenshot(const msgs::StringMsg &_msg,
+        msgs::Boolean &_res);
+
     /// \internal
     /// \brief Pointer to private data.
     private: std::unique_ptr<Scene3DPrivate> dataPtr;
@@ -244,6 +251,10 @@ inline namespace IGNITION_GAZEBO_VERSION_NAMESPACE {
     /// \brief Set the world pose of the camera
     /// \param[in] _pose The world pose to set the camera to.
     public: void SetMoveToPose(const math::Pose3d &_pose);
+
+    /// \brief Save a screenshot from the user camera
+    /// \param[in] _filename The filename (including path) of the screenshot
+    public: void SaveScreenshot(const std::string &_filename);
 
     /// \brief Set the p gain for the camera follow movement
     /// \param[in] _gain Camera follow p gain.
@@ -579,6 +590,10 @@ inline namespace IGNITION_GAZEBO_VERSION_NAMESPACE {
     /// \brief Set the pose of the camera
     /// \param[in] _pose The new camera pose in the world frame.
     public: void SetMoveToPose(const math::Pose3d &_pose);
+
+    /// \brief Save a screenshot from the user camera
+    /// \param[in] _filename The filename (including path) of the screenshot
+    public: void SaveScreenshot(const std::string &_filename);
 
     /// \brief Set the p gain for the camera follow movement
     /// \param[in] _gain Camera follow p gain.

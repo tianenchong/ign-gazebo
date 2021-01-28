@@ -35,6 +35,7 @@
 
 #include <ignition/common/Animation.hh>
 #include <ignition/common/Console.hh>
+#include <ignition/common/Image.hh>
 #include <ignition/common/KeyFrame.hh>
 #include <ignition/common/MeshManager.hh>
 #include <ignition/common/Profiler.hh>
@@ -360,6 +361,9 @@ inline namespace IGNITION_GAZEBO_VERSION_NAMESPACE {
 
     /// \brief The scale values by which to snap the object.
     public: math::Vector3d scaleSnap = math::Vector3d::One;
+
+    /// \brief Path (including filename) to save the screenshot
+    public: std::string screenshotSavePath;
   };
 
   /// \brief Private data class for RenderWindowItem
@@ -429,6 +433,9 @@ inline namespace IGNITION_GAZEBO_VERSION_NAMESPACE {
     /// \brief mutex to protect the render condition variable
     /// Used when recording in lockstep mode.
     public: std::mutex renderMutex;
+
+    /// \brief Screenshot service
+    public: std::string screenshotService;
   };
 }
 }
@@ -800,6 +807,31 @@ void IgnRenderer::Render()
       this->DeselectAllEntities(true);
       this->TerminateSpawnPreview();
       this->dataPtr->escapeReleased = false;
+    }
+  }
+
+  // Save screenshot
+  {
+    IGN_PROFILE("IgnRenderer::Render Screenshot");
+    if (!this->dataPtr->screenshotSavePath.empty())
+    {
+      unsigned int width = this->dataPtr->camera->ImageWidth();
+      unsigned int height = this->dataPtr->camera->ImageHeight();
+
+      if (this->dataPtr->cameraImage.Width() != width ||
+          this->dataPtr->cameraImage.Height() != height)
+      {
+        this->dataPtr->cameraImage = this->dataPtr->camera->CreateImage();
+      }
+
+      this->dataPtr->camera->Copy(this->dataPtr->cameraImage);
+
+      common::Image image;
+      image.SetFromData(this->dataPtr->cameraImage.Data<unsigned char>(),
+          width, height, common::Image::RGB_INT8);
+      image.SavePNG(this->dataPtr->screenshotSavePath);
+
+      this->dataPtr->screenshotSavePath.clear();
     }
   }
 
@@ -1915,6 +1947,13 @@ void IgnRenderer::SetMoveToPose(const math::Pose3d &_pose)
 }
 
 /////////////////////////////////////////////////
+void IgnRenderer::SaveScreenshot(const std::string &_filename)
+{
+  std::lock_guard<std::mutex> lock(this->dataPtr->mutex);
+  this->dataPtr->screenshotSavePath = _filename;
+}
+
+/////////////////////////////////////////////////
 void IgnRenderer::SetFollowPGain(double _gain)
 {
   std::lock_guard<std::mutex> lock(this->dataPtr->mutex);
@@ -2618,6 +2657,13 @@ void Scene3D::LoadConfig(const tinyxml2::XMLElement *_pluginElem)
   ignmsg << "Camera pose topic advertised on ["
          << this->dataPtr->cameraPoseTopic << "]" << std::endl;
 
+  // Screenshot service
+  this->dataPtr->screenshotService = "/gui/screenshot";
+  this->dataPtr->node.Advertise(this->dataPtr->screenshotService,
+      &Scene3D::OnScreenshot, this);
+  ignmsg << "Screenshot service on ["
+         << this->dataPtr->screenshotService << "]" << std::endl;
+
   ignition::gui::App()->findChild<
       ignition::gui::MainWindow *>()->QuickWindow()->installEventFilter(this);
   ignition::gui::App()->findChild<
@@ -2765,6 +2811,18 @@ bool Scene3D::OnMoveToPose(const msgs::GUICamera &_msg, msgs::Boolean &_res)
     pose.Pos().X() = math::INF_D;
 
   renderWindow->SetMoveToPose(pose);
+
+  _res.set_data(true);
+  return true;
+}
+
+/////////////////////////////////////////////////
+bool Scene3D::OnScreenshot(const msgs::StringMsg &_msg,
+  msgs::Boolean &_res)
+{
+  auto renderWindow = this->PluginItem()->findChild<RenderWindowItem *>();
+
+  renderWindow->SaveScreenshot(_msg.data());
 
   _res.set_data(true);
   return true;
@@ -3023,6 +3081,12 @@ void RenderWindowItem::SetViewAngle(const math::Vector3d &_direction)
 void RenderWindowItem::SetMoveToPose(const math::Pose3d &_pose)
 {
   this->dataPtr->renderThread->ignRenderer.SetMoveToPose(_pose);
+}
+
+/////////////////////////////////////////////////
+void RenderWindowItem::SaveScreenshot(const std::string &_filename)
+{
+  this->dataPtr->renderThread->ignRenderer.SaveScreenshot(_filename);
 }
 
 /////////////////////////////////////////////////
