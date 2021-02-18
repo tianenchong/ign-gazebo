@@ -291,9 +291,11 @@ void VisualizeLidar::Update(const UpdateInfo &,
           for (auto child : children)
           {
             std::string nextstring = lidarURIVec[i+1];
+            std::string nextstringlink = nextstring+"::link";
             std::string childname = std::string(
                             _ecm.Component<components::Name>(child)->Data());
-            if (nextstring.compare(childname) == 0)
+            bool nextLinkNameExists = nextstringlink.compare(childname) == 0;
+            if (nextstring.compare(childname) == 0 || nextLinkNameExists)
             {
               parent = child;
               foundChild = true;
@@ -301,6 +303,8 @@ void VisualizeLidar::Update(const UpdateInfo &,
               {
                 success = true;
               }
+              if (nextLinkNameExists)
+                i++; // skip the "link" child as it exist only as a part of a name, and move to the next
               break;
             }
           }
@@ -516,3 +520,4 @@ QString VisualizeLidar::MinRange() const
 // Register this plugin
 IGNITION_ADD_PLUGIN(ignition::gazebo::VisualizeLidar,
                     ignition::gui::Plugin)
+
